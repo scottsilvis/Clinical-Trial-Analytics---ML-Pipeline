@@ -1,0 +1,107 @@
+---
+title: "load to sqlite"
+output: html_notebook
+---
+
+
+Load raw CSVs into SQLite and apply schema.
+
+```{r}
+library(DBI)
+library(RSQLite)
+library(readr)
+library(dplyr)
+```
+
+---- Paths ----
+
+```{r}
+db_path <- "clinical_trial.db"
+schema_path <- file.path("sql", "01_create_tables.sql")
+
+data_dir <- file.path("Data")  
+
+files <- list(
+  sites    = file.path(data_dir, "sites.csv"),
+  patients = file.path(data_dir, "patients.csv"),
+  visits   = file.path(data_dir, "visits.csv"),
+  outcomes = file.path(data_dir, "outcomes.csv"),
+  notes    = file.path(data_dir, "notes.csv")
+)
+```
+
+---- Connect ----
+
+```{r}
+con <- dbConnect(SQLite(), db_path)
+
+# Enforce foreign keys in SQLite (must be ON per-connection)
+dbExecute(con, "PRAGMA foreign_keys = ON;")
+```
+
+---- (Re)create schema ----
+
+```{r}
+# NOTE: This will drop existing tables if you rerun.
+# If you want that behavior, keep this block. Otherwise comment out.
+tables <- c("notes", "outcomes", "visits", "patients", "sites")
+for (t in tables) dbExecute(con, paste0("DROP TABLE IF EXISTS ", t, ";"))
+
+schema_sql <- readLines(schema_path, warn = FALSE)
+
+# Split into individual statements by semicolon
+stmts <- unlist(strsplit(schema_sql, ";", fixed = TRUE))
+stmts <- trimws(stmts)
+stmts <- stmts[nchar(stmts) > 0]
+
+for (s in stmts) {
+  dbExecute(con, paste0(s, ";"))
+```
+
+# ---- Load data in dependency order ----
+
+```{r}
+# Sites first (patients references sites; visits references both)
+for (tbl in c("sites", "patients", "visits", "outcomes", "notes")) {
+  message("Loading: ", tbl, " from ", files[[tbl]])
+  df <- read_csv(files[[tbl]], show_col_types = FALSE)
+
+  # Ensure column names match DB schema exactly
+  # (readr usually preserves header names as-is)
+  dbWriteTable(con, tbl, df, append = TRUE)
+}
+```
+
+# ---- Basic verification ----
+
+```{r}
+row_counts <- sapply(names(files), function(tbl) {
+  dbGetQuery(con, paste0("SELECT COUNT(*) AS n FROM ", tbl, ";"))$n
+})
+print(row_counts)
+```
+
+# ---- Spot-check relationships ----
+
+```{r}
+# 1) Any visits missing a patient?
+missing_patients <- dbGetQuery(con, "
+  SELECT COUNT(*) AS n_missing
+  FROM visits v
+  LEFT JOIN patients p ON p.patient_id = v.patient_id
+  WHERE p.patient_id IS NULL;
+")
+print(missing_patients)
+
+# 2) Any patients missing a site?
+missing_sites <- dbGetQuery(con, "
+  SELECT COUNT(*) AS n_missing
+  FROM patients p
+  LEFT JOIN sites s ON s.site_id = p.site_id
+  WHERE s.site_id IS NULL;
+")
+print(missing_sites)
+
+dbDisconnect(con)
+message('Done. SQLite DB created at: ', db_path)
+```
