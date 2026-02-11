@@ -1,7 +1,4 @@
 -- SQL Script to Create Tables for Clinical Trial Database
-
-PRAGMA foreign_keys = ON;
-
 -- =========================
 -- Outcomes (1 row per patient, labels only)
 -- =========================

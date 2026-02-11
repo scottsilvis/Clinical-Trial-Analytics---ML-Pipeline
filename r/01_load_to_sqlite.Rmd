@@ -17,9 +17,15 @@ library(dplyr)
 
 ```{r}
 db_path <- "clinical_trial.db"
-schema_path <- file.path("sql", "01_create_tables.sql")
+schema_paths <- c(
+  file.path("sql", "01_sites.sql"),
+  file.path("sql", "02_patients.sql"),
+  file.path("sql", "03_visits.sql"),
+  file.path("sql", "04_outcomes.sql"),
+  file.path("sql", "05_notes.sql")
+)
 
-data_dir <- file.path("Data")  
+data_dir <- file.path("data")  
 
 files <- list(
   sites    = file.path(data_dir, "sites.csv"),
@@ -33,10 +39,10 @@ files <- list(
 ---- Connect ----
 
 ```{r}
-con <- dbConnect(SQLite(), db_path)
+conn <- dbConnect(RSQLite::SQLite(), db_path)
 
 # Enforce foreign keys in SQLite (must be ON per-connection)
-dbExecute(con, "PRAGMA foreign_keys = ON;")
+dbExecute(conn, "PRAGMA foreign_keys = ON;")
 ```
 
 ---- (Re)create schema ----
@@ -44,18 +50,21 @@ dbExecute(con, "PRAGMA foreign_keys = ON;")
 ```{r}
 # NOTE: This will drop existing tables if you rerun.
 # If you want that behavior, keep this block. Otherwise comment out.
+
 tables <- c("notes", "outcomes", "visits", "patients", "sites")
-for (t in tables) dbExecute(con, paste0("DROP TABLE IF EXISTS ", t, ";"))
+for (t in tables) dbExecute(conn, paste0("DROP TABLE IF EXISTS ", t, ";"))
 
-schema_sql <- readLines(schema_path, warn = FALSE)
+stopifnot(all(file.exists(schema_paths)))
+for (p in schema_paths) {
+  message("Applying schema: ", p)
+  sql <- paste(readLines(p, warn = FALSE), collapse = "\n")
+  dbExecute(conn, sql)
+} 
+```
 
-# Split into individual statements by semicolon
-stmts <- unlist(strsplit(schema_sql, ";", fixed = TRUE))
-stmts <- trimws(stmts)
-stmts <- stmts[nchar(stmts) > 0]
-
-for (s in stmts) {
-  dbExecute(con, paste0(s, ";"))
+```{r}
+dbListTables(conn)
+dbGetQuery(conn, "PRAGMA table_info(patients);")
 ```
 
 # ---- Load data in dependency order ----
