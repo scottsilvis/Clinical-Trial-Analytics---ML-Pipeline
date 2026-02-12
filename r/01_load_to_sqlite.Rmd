@@ -67,34 +67,32 @@ dbListTables(conn)
 dbGetQuery(conn, "PRAGMA table_info(patients);")
 ```
 
-# ---- Load data in dependency order ----
+---- Load data ----
 
 ```{r}
 # Sites first (patients references sites; visits references both)
+
 for (tbl in c("sites", "patients", "visits", "outcomes", "notes")) {
   message("Loading: ", tbl, " from ", files[[tbl]])
   df <- read_csv(files[[tbl]], show_col_types = FALSE)
-
-  # Ensure column names match DB schema exactly
-  # (readr usually preserves header names as-is)
-  dbWriteTable(con, tbl, df, append = TRUE)
+  dbWriteTable(conn, tbl, df, append = TRUE)
 }
 ```
 
-# ---- Basic verification ----
+---- Basic verification ----
 
 ```{r}
 row_counts <- sapply(names(files), function(tbl) {
-  dbGetQuery(con, paste0("SELECT COUNT(*) AS n FROM ", tbl, ";"))$n
+  dbGetQuery(conn, paste0("SELECT COUNT(*) AS n FROM ", tbl, ";"))$n
 })
 print(row_counts)
 ```
 
-# ---- Spot-check relationships ----
+---- Spot-check relationships ----
 
 ```{r}
 # 1) Any visits missing a patient?
-missing_patients <- dbGetQuery(con, "
+missing_patients <- dbGetQuery(conn, "
   SELECT COUNT(*) AS n_missing
   FROM visits v
   LEFT JOIN patients p ON p.patient_id = v.patient_id
@@ -103,7 +101,7 @@ missing_patients <- dbGetQuery(con, "
 print(missing_patients)
 
 # 2) Any patients missing a site?
-missing_sites <- dbGetQuery(con, "
+missing_sites <- dbGetQuery(conn, "
   SELECT COUNT(*) AS n_missing
   FROM patients p
   LEFT JOIN sites s ON s.site_id = p.site_id
@@ -111,6 +109,6 @@ missing_sites <- dbGetQuery(con, "
 ")
 print(missing_sites)
 
-dbDisconnect(con)
+dbDisconnect(conn)
 message('Done. SQLite DB created at: ', db_path)
 ```

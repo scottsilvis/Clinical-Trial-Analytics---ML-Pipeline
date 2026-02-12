@@ -1,0 +1,27 @@
+---
+title: "03_baeline_modeling"
+output: html_notebook
+---
+
+The goal of this phase is to establish a baseline predictive model using *enrollment-time* patient characteristics only. This model serves as a reference point for evaluating the predictive value of treatment assignment in later analyses.
+
+### Modeling Question
+
+Can we predict which patients will respond (as dictated by outcomes$responder_30pct) using the attributes available at the beginning of the trial? These attributes include:
+
+### Planned Attribute Sets 
+
+#### Baseline-Only Attributes (Model 1)
+
+sex, age, bmi, smoker, comorbidity_count, baseline_severity, crp_mgL, alt_U_L, egfr_ml_min
+self_reported_adherence
+
+#### Baseline + Treatment (Model 2)
+
+All baseline_only attributes + treatment_arm
+
+
+#### Consider Later:
+
+site_id, enroll_date
+
