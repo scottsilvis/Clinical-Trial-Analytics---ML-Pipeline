@@ -277,3 +277,4 @@ pr_obj <- pr.curve(
 pr_obj$auc.integral
 ```
 
+Removing baseline_severity resulted in a substantial loss of predictive performance, with models relying on demographics, treatment assignment, and enrollment-time laboratory values performing near baseline prevalence. This indicates that baseline_severity captures clinically meaningful information that is not recoverable from individual demographic variables or timepoint-0 labs alone. While treatment assignment has a strong population-level effect, it does not meaningfully improve individual-level precision in the absence of baseline severity. These findings suggest that enrollment-time simplification is limited in this setting and motivate exploration of early on-treatment data as a potential source of additional actionable signal.

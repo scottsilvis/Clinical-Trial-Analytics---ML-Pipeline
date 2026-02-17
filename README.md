@@ -11,12 +11,13 @@ The dataset is entirely synthetic and was generated programmatically to reflect 
 
 ## Objectives
 
-- Perform exploratory data analysis (EDA) on relational clinical data
-- Engineer features from longitudinal measurements
-- Build reproducible machine-learning pipelines 
-- Compare baseline statistical models with tree-based ensemble methods
-- Evaluate models using industry-standard metrics
-- Interpret results and communicate findings clearly
+- Design and validate a relational clinical trial dataset
+- Perform exploratory analysis using enrollment-time data only
+- Prevent data leakage through strict temporal feature control
+- Build and evaluate baseline predictive models for clinical response
+- Quantify the contribution of treatment assignment vs. baseline risk
+- Assess whether early on-treatment changes improve prediction
+- Communicate findings clearly and defensibly
 
 ---
 
@@ -92,84 +93,115 @@ Key variables:
 │   └── notes.csv
 │
 ├── r/
-│   ├── 02_exploratory_data_analysis.md
-│   ├── 03_feature_engineering.md
+│   ├── 02_baseline_EDA.Rmd
+│   ├── 03_baseline_modeling.Rmd
+│   ├── 04_model_simplification.Rmd
+│   └── 05_early_on_treatment_modeling.Rmd
 |
 ├── sql/
-│   ├── 01_create_tables.sql
-│   └── 02_create_feature_views.sql
-|
-├── python/
-│   ├── 05_model_training.ipynb
-│   └── 06_model_evaluation.ipynb
+│   ├── 01_sites.sql
+│   ├── 02_patients.sql
+│   ├── 03_visits.sql
+│   ├── 04_outcomes.sql
+│   └── 05_notes.sql
 │
+├── 01_load_to_sqlite.R
 ├── README.md
 └── requirements.txt
 ```
-
-(File names are suggestions; structure may vary.)
 
 ---
 
 ## Modeling Approach
 
-### Feature Engineering
+### Baseline Modeling (Enrollment-Time Only)
 
-Longitudinal visit data is aggregated to patient-level features, including:
+Predictive models were first constructed using only enrollment-time attributes, serving as a reference point for later analyses.
 
-- Visit counts and dropout indicators
-- Adherence summaries (mean, minimum)
-- Symptom trajectories (slopes, deltas)
-- Laboratory trends and extrema
-- Adverse event summaries
+- Logistic regression was used for interpretability
+- Severe class imbalance (~3% responders) required careful metric selection
+- Evaluation emphasized precision–recall AUC, with ROC–AUC used for context
 
-This reflects a common real-world task: converting time-series clinical data into tabular, ML-ready features.
+**Key finding:**
+
+Baseline disease severity was the dominant predictor of response, with treatment assignment providing strong incremental signal.
 
 ---
 
-### Models
+### Model Simplification & Interpretability
 
-Two supervised models are trained and compared:
+Several reduced models were evaluated to assess tradeoffs between performance and defensibility:
 
-#### Logistic Regression
-- Baseline, interpretable benchmark
-- Standardized features
+- Full baseline model
+- Baseline model excluding baseline_severity
+- Objective labs only
+- Labs + demographics
 
-#### Gradient Boosting
-- Nonlinear, high-performance model
-- Captures interactions and patient heterogeneity
+**Key finding:**
 
-## Evaluation Metrics
-- ROC–AUC
-- Precision / Recall
-- Confusion Matrix
-- Feature importance (tree-based models)
+Removing the composite severity score caused performance to collapse toward the null model, indicating that baseline severity captures clinically meaningful information not recoverable from individual labs or demographics.
 
-## Key Skills Demonstrated
+---
+
+### Early On-Treatment Feature Evaluation
+
+The final phase assessed whether early on-treatment changes improve prediction beyond baseline risk.
+
+Features engineered from the first follow-up visit included:
+
+- Changes and rates of change in severity and labs
+- Time since enrollment
+- Early medication adherence
+
+**Key finding:**
+
+Early on-treatment features did not materially improve predictive performance. Baseline severity and treatment assignment remained dominant, suggesting that meaningful response signal emerges later in the treatment course.
+
+---
+
+### Evaluation Metrics
+
+Because response is rare, model performance was assessed using metrics appropriate for imbalanced outcomes:
+
+- Precision–Recall AUC (primary)
+- ROC–AUC (contextual)
+- Calibration and interpretability of coefficients
+
+---
+
+### Key Skills Demonstrated
     
-- Exploratory Data Analysis (EDA)
-- Feature engineering from longitudinal data
-- Train / validation / test workflows
-- Machine learning pipelines (scikit-learn)
-- Model comparison and interpretation
-- Handling missingness and dropout
-- Clear communication of analytical results
+- Relational data modeling (SQLite, SQL)
+- Data integrity and leakage prevention
+- Exploratory data analysis and hypothesis checking
+- Logistic regression with imbalanced outcomes
+- Feature engineering with temporal awareness
+- Model comparison and interpretability tradeoffs
+- Clear analytical communication
 
-## Notes on Synthetic Data
+---
+
+### Notes on Synthetic Data
     
 - All data is fully simulated
 - No real patients, institutions, or medications are represented
 - Patterns were intentionally embedded to allow meaningful discovery without being trivial
 
-## Possible Extensions
+---
 
-- Time-to-event (survival) modeling
-- Mixed-effects or hierarchical models
+### Possible Extensions
+
+These were intentionally scoped out of this project but are natural next steps:
+
+- Later on-treatment or longitudinal modeling
+- Time-to-event (survival) analysis
+- Hierarchical or site-level effects
 - NLP modeling on clinical notes
-- Model deployment (API or dashboard)
-- Fairness and subgroup analysis
+- Model deployment or monitoring pipelines
 
-## Disclaimer
+---
+
+### Disclaimer
 
 This project is for educational and demonstration purposes only.
 It does not represent real clinical evidence and should not be used for medical decision-making.
